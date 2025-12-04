@@ -4,6 +4,7 @@ import { DropZone } from "./components/DropZone";
 import { LoadingOverlay } from "./components/LoadingOverlay";
 import { InfoPanel } from "./components/InfoPanel";
 import { ControlsPanel } from "./components/ControlsPanel";
+import { SettingsPanel } from "./components/SettingsPanel";
 import { ErrorMessage } from "./components/ErrorMessage";
 import { useGaussianSplatViewer } from "./hooks/useGaussianSplatViewer";
 
@@ -11,11 +12,13 @@ export default function App() {
   const {
     containerRef,
     state,
+    settings,
     loadSplatFile,
     loadSampleData,
     resetCamera,
     resetViewer,
     clearError,
+    updateSettings,
   } = useGaussianSplatViewer();
 
   const handleFileSelect = useCallback(
@@ -41,6 +44,13 @@ export default function App() {
       />
 
       <LoadingOverlay visible={state.isLoading} progress={state.progress} />
+
+      <SettingsPanel
+        visible={state.isViewerActive}
+        settings={settings}
+        onSettingsChange={updateSettings}
+        memoryUsage={state.memoryUsage}
+      />
 
       <InfoPanel
         visible={state.isViewerActive}

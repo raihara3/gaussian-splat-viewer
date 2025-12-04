@@ -17,6 +17,12 @@ declare module "@mkkellogg/gaussian-splats-3d" {
     Debug = 3,
   }
 
+  export enum RenderMode {
+    Always = 0,
+    OnChange = 1,
+    Never = 2,
+  }
+
   export interface ViewerOptions {
     cameraUp?: [number, number, number];
     initialCameraPosition?: [number, number, number];
@@ -30,6 +36,8 @@ declare module "@mkkellogg/gaussian-splats-3d" {
     focalAdjustment?: number;
     logLevel?: LogLevel;
     sphericalHarmonicsDegree?: number;
+    renderMode?: RenderMode;
+    splatRenderMode?: number;
   }
 
   export interface AddSplatSceneOptions {
@@ -46,6 +54,19 @@ declare module "@mkkellogg/gaussian-splats-3d" {
 
   export class Viewer {
     controls?: ViewerControls;
+    renderer?: {
+      domElement: HTMLCanvasElement;
+      getContext: () => WebGL2RenderingContext | WebGLRenderingContext | null;
+    };
+    scene?: {
+      background: { set: (color: number) => void } | null;
+    };
+    splatMesh?: {
+      disposers: unknown[];
+      getSplatCount: () => number;
+      setPointCloudModeEnabled: (enabled: boolean) => void;
+      setSplatScale: (scale: number) => void;
+    };
 
     constructor(options?: ViewerOptions);
 
@@ -55,6 +76,8 @@ declare module "@mkkellogg/gaussian-splats-3d" {
     ): Promise<void>;
 
     start(): void;
+
+    stop(): void;
 
     dispose(): void;
 

@@ -1,5 +1,11 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import * as GaussianSplats3D from "@mkkellogg/gaussian-splats-3d";
+import * as THREE from "three";
+import {
+  type ViewerSettings,
+  defaultViewerSettings,
+  backgroundColorValues,
+} from "../types/viewer";
 
 interface ViewerState {
   isLoading: boolean;
@@ -9,6 +15,7 @@ interface ViewerState {
   splatCount: string;
   fps: number;
   error: string | null;
+  memoryUsage: string;
 }
 
 function getFileFormat(filename: string): GaussianSplats3D.SceneFormat {
@@ -25,6 +32,18 @@ function getFileFormat(filename: string): GaussianSplats3D.SceneFormat {
   }
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+}
+
+function hexToNumber(hex: string): number {
+  return parseInt(hex.replace("#", ""), 16);
+}
+
 export function useGaussianSplatViewer() {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<GaussianSplats3D.Viewer | null>(null);
@@ -32,6 +51,8 @@ export function useGaussianSplatViewer() {
   const fpsFramesRef = useRef(0);
   const fpsTimeRef = useRef(performance.now());
   const animationFrameRef = useRef<number | null>(null);
+  const autoRotateRef = useRef<number | null>(null);
+  const cameraAngleRef = useRef(0);
 
   const [state, setState] = useState<ViewerState>({
     isLoading: false,
@@ -41,7 +62,45 @@ export function useGaussianSplatViewer() {
     splatCount: "-",
     fps: 0,
     error: null,
+    memoryUsage: "-",
   });
+
+  const [settings, setSettings] = useState<ViewerSettings>(defaultViewerSettings);
+
+  const updateMemoryUsage = useCallback(() => {
+    const gl = viewerRef.current?.renderer?.getContext();
+    if (gl) {
+      const extension = gl.getExtension("WEBGL_debug_renderer_info");
+      if (extension) {
+        const memoryInfo = (
+          gl as WebGL2RenderingContext & {
+            getParameter: (parameter: number) => unknown;
+          }
+        ).getExtension("GMAN_webgl_memory");
+        if (memoryInfo) {
+          const info = (
+            memoryInfo as { getMemoryInfo: () => { memory: { total: number } } }
+          ).getMemoryInfo();
+          setState((previous) => ({
+            ...previous,
+            memoryUsage: formatBytes(info.memory.total),
+          }));
+          return;
+        }
+      }
+    }
+
+    if (typeof performance !== "undefined" && "memory" in performance) {
+      const memory = (performance as { memory: { usedJSHeapSize: number } })
+        .memory;
+      setState((previous) => ({
+        ...previous,
+        memoryUsage: formatBytes(memory.usedJSHeapSize),
+      }));
+    } else {
+      setState((previous) => ({ ...previous, memoryUsage: "N/A" }));
+    }
+  }, []);
 
   const initializeViewer = useCallback(() => {
     if (viewerRef.current) {
@@ -71,6 +130,21 @@ export function useGaussianSplatViewer() {
     return viewer;
   }, []);
 
+  const applyBackgroundColor = useCallback((currentSettings: ViewerSettings) => {
+    if (!viewerRef.current?.renderer) return;
+
+    const renderer = viewerRef.current.renderer as THREE.WebGLRenderer;
+    let colorValue: number;
+
+    if (currentSettings.backgroundColor === "custom") {
+      colorValue = hexToNumber(currentSettings.customBackgroundColor);
+    } else {
+      colorValue = backgroundColorValues[currentSettings.backgroundColor];
+    }
+
+    renderer.setClearColor(colorValue, 1);
+  }, []);
+
   const startFpsCounter = useCallback(() => {
     const updateFps = () => {
       fpsFramesRef.current++;
@@ -79,10 +153,65 @@ export function useGaussianSplatViewer() {
         setState((previous) => ({ ...previous, fps: fpsFramesRef.current }));
         fpsFramesRef.current = 0;
         fpsTimeRef.current = now;
+        updateMemoryUsage();
       }
       animationFrameRef.current = requestAnimationFrame(updateFps);
     };
     updateFps();
+  }, [updateMemoryUsage]);
+
+  const startAutoRotate = useCallback((speed: number) => {
+    if (autoRotateRef.current) {
+      cancelAnimationFrame(autoRotateRef.current);
+    }
+
+    const controls = viewerRef.current?.controls as unknown as {
+      object?: THREE.Camera;
+      target?: THREE.Vector3;
+    };
+
+    if (!controls?.object || !controls?.target) return;
+
+    const cameraPosition = controls.object.position;
+    const target = controls.target;
+
+    const dx = cameraPosition.x - target.x;
+    const dz = cameraPosition.z - target.z;
+    const horizontalRadius = Math.sqrt(dx * dx + dz * dz);
+    const cameraHeight = cameraPosition.y;
+
+    cameraAngleRef.current = Math.atan2(dx, dz);
+
+    const rotate = () => {
+      if (!viewerRef.current?.controls) return;
+
+      cameraAngleRef.current += 0.005 * speed;
+
+      const currentControls = viewerRef.current.controls as unknown as {
+        object?: THREE.Camera;
+        target?: THREE.Vector3;
+      };
+
+      if (currentControls.object && currentControls.target) {
+        currentControls.object.position.x =
+          currentControls.target.x + horizontalRadius * Math.sin(cameraAngleRef.current);
+        currentControls.object.position.z =
+          currentControls.target.z + horizontalRadius * Math.cos(cameraAngleRef.current);
+        currentControls.object.position.y = cameraHeight;
+        currentControls.object.lookAt(currentControls.target);
+      }
+
+      autoRotateRef.current = requestAnimationFrame(rotate);
+    };
+
+    rotate();
+  }, []);
+
+  const stopAutoRotate = useCallback(() => {
+    if (autoRotateRef.current) {
+      cancelAnimationFrame(autoRotateRef.current);
+      autoRotateRef.current = null;
+    }
   }, []);
 
   const loadSplatFile = useCallback(
@@ -133,17 +262,42 @@ export function useGaussianSplatViewer() {
         viewer.start();
 
         setTimeout(() => {
-          const splatCount = viewer.getSplatCount
-            ? viewer.getSplatCount()
-            : "N/A";
-          setState((previous) => ({
-            ...previous,
-            splatCount:
-              typeof splatCount === "number"
-                ? splatCount.toLocaleString()
-                : String(splatCount),
-          }));
+          applyBackgroundColor(settings);
+
+          if (viewer.splatMesh) {
+            if (settings.pointCloudMode) {
+              viewer.splatMesh.setPointCloudModeEnabled(true);
+            }
+            viewer.splatMesh.setSplatScale(settings.pointSize);
+          }
+
+          if (settings.autoRotate) {
+            startAutoRotate(settings.autoRotateSpeed);
+          }
         }, 500);
+
+        const updateSplatCount = () => {
+          try {
+            let splatCount: number | string = "N/A";
+            if (viewer.splatMesh?.getSplatCount) {
+              splatCount = viewer.splatMesh.getSplatCount();
+            } else if (typeof viewer.getSplatCount === "function") {
+              splatCount = viewer.getSplatCount();
+            }
+
+            if (typeof splatCount === "number" && splatCount > 0) {
+              setState((previous) => ({
+                ...previous,
+                splatCount: splatCount.toLocaleString(),
+              }));
+            } else {
+              setTimeout(updateSplatCount, 1000);
+            }
+          } catch {
+            setTimeout(updateSplatCount, 1000);
+          }
+        };
+        setTimeout(updateSplatCount, 1000);
 
         setState((previous) => ({
           ...previous,
@@ -162,7 +316,7 @@ export function useGaussianSplatViewer() {
         }));
       }
     },
-    [initializeViewer, startFpsCounter]
+    [initializeViewer, startFpsCounter, settings, applyBackgroundColor, startAutoRotate]
   );
 
   const loadSampleData = useCallback(() => {
@@ -174,10 +328,13 @@ export function useGaussianSplatViewer() {
   const resetCamera = useCallback(() => {
     if (viewerRef.current?.controls) {
       viewerRef.current.controls.reset();
+      cameraAngleRef.current = 0;
     }
   }, []);
 
   const resetViewer = useCallback(() => {
+    stopAutoRotate();
+
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
@@ -205,15 +362,61 @@ export function useGaussianSplatViewer() {
       splatCount: "-",
       fps: 0,
       error: null,
+      memoryUsage: "-",
     });
-  }, []);
+  }, [stopAutoRotate]);
 
   const clearError = useCallback(() => {
     setState((previous) => ({ ...previous, error: null }));
   }, []);
 
+  const updateSettings = useCallback(
+    (newSettings: Partial<ViewerSettings>) => {
+      setSettings((previous) => {
+        const updated = { ...previous, ...newSettings };
+
+        if (viewerRef.current) {
+          if (
+            newSettings.backgroundColor !== undefined ||
+            newSettings.customBackgroundColor !== undefined
+          ) {
+            applyBackgroundColor(updated);
+          }
+
+          if (newSettings.pointCloudMode !== undefined && viewerRef.current.splatMesh) {
+            viewerRef.current.splatMesh.setPointCloudModeEnabled(updated.pointCloudMode);
+          }
+
+          if (newSettings.pointSize !== undefined && viewerRef.current.splatMesh) {
+            viewerRef.current.splatMesh.setSplatScale(updated.pointSize);
+          }
+
+          if (newSettings.autoRotate !== undefined) {
+            if (updated.autoRotate) {
+              startAutoRotate(updated.autoRotateSpeed);
+            } else {
+              stopAutoRotate();
+            }
+          }
+
+          if (
+            newSettings.autoRotateSpeed !== undefined &&
+            updated.autoRotate
+          ) {
+            stopAutoRotate();
+            startAutoRotate(updated.autoRotateSpeed);
+          }
+        }
+
+        return updated;
+      });
+    },
+    [applyBackgroundColor, startAutoRotate, stopAutoRotate]
+  );
+
   useEffect(() => {
     return () => {
+      stopAutoRotate();
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
@@ -224,15 +427,17 @@ export function useGaussianSplatViewer() {
         URL.revokeObjectURL(objectUrlRef.current);
       }
     };
-  }, []);
+  }, [stopAutoRotate]);
 
   return {
     containerRef,
     state,
+    settings,
     loadSplatFile,
     loadSampleData,
     resetCamera,
     resetViewer,
     clearError,
+    updateSettings,
   };
 }
