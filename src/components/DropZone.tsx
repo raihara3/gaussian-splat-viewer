@@ -76,10 +76,10 @@ export function DropZone({ onFileSelect, onLoadSample, visible }: DropZoneProps)
           </svg>
         </div>
         <h2 className="text-2xl font-bold mb-3">
-          Gaussian Splattingファイルをドロップ
+          Drop Gaussian Splatting File
         </h2>
         <p className="text-[var(--text-secondary)] text-[15px] mb-6">
-          またはクリックしてファイルを選択
+          or click to select a file
         </p>
         <div className="flex justify-center gap-3 flex-wrap">
           <span className="font-mono text-xs px-3.5 py-1.5 bg-[var(--bg-primary)] rounded-full text-[var(--text-secondary)]">
@@ -99,7 +99,7 @@ export function DropZone({ onFileSelect, onLoadSample, visible }: DropZoneProps)
             onLoadSample();
           }}
         >
-          サンプルデータを読み込む
+          Load Sample Data
         </button>
       </div>
       <input

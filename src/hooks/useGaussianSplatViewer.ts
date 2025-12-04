@@ -158,7 +158,7 @@ export function useGaussianSplatViewer() {
         setState((previous) => ({
           ...previous,
           isLoading: false,
-          error: "ファイルの読み込みに失敗しました。形式を確認してください。",
+          error: "Failed to load file. Please check the format.",
         }));
       }
     },

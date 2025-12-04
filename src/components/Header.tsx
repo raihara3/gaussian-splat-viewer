@@ -6,7 +6,7 @@ export function Header() {
           3D
         </div>
         <div className="font-bold text-xl tracking-tight">
-          Gaussian<span className="text-[var(--accent)]">Splat</span>
+          <span className="text-[var(--accent)]">Splat</span>Viewer
         </div>
       </div>
     </header>

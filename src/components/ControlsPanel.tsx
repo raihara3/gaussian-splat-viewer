@@ -12,15 +12,15 @@ export function ControlsPanel({ visible, onReset, onNewFile }: ControlsPanelProp
   return (
     <div className="fixed bottom-[30px] left-1/2 -translate-x-1/2 z-[100] bg-[var(--bg-secondary)] border border-[var(--border)] rounded-2xl px-6 py-4 flex items-center gap-5">
       <div className="flex items-center gap-2.5">
-        <span className="text-[13px] text-[var(--text-secondary)]">操作:</span>
+        <span className="text-[13px] text-[var(--text-secondary)]">Controls:</span>
         <span className="font-mono text-xs text-[var(--text-secondary)]">
-          ドラッグ=回転 / スクロール=ズーム / 右ドラッグ=移動
+          Drag=Rotate / Scroll=Zoom / Right Drag=Pan
         </span>
       </div>
       <div className="w-px h-6 bg-[var(--border)]" />
       <button
         className="w-9 h-9 border border-[var(--border)] bg-[var(--bg-primary)] rounded-lg text-[var(--text-primary)] cursor-pointer flex items-center justify-center transition-all duration-200 hover:border-[var(--accent)] hover:text-[var(--accent)]"
-        title="カメラリセット"
+        title="Reset Camera"
         onClick={onReset}
       >
         <svg
@@ -36,7 +36,7 @@ export function ControlsPanel({ visible, onReset, onNewFile }: ControlsPanelProp
       </button>
       <button
         className="w-9 h-9 border border-[var(--border)] bg-[var(--bg-primary)] rounded-lg text-[var(--text-primary)] cursor-pointer flex items-center justify-center transition-all duration-200 hover:border-[var(--accent)] hover:text-[var(--accent)]"
-        title="新しいファイル"
+        title="New File"
         onClick={onNewFile}
       >
         <svg
