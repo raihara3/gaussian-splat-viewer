@@ -65,7 +65,9 @@ export function useGaussianSplatViewer() {
     memoryUsage: "-",
   });
 
-  const [settings, setSettings] = useState<ViewerSettings>(defaultViewerSettings);
+  const [settings, setSettings] = useState<ViewerSettings>(
+    defaultViewerSettings
+  );
 
   const updateMemoryUsage = useCallback(() => {
     const gl = viewerRef.current?.renderer?.getContext();
@@ -130,20 +132,23 @@ export function useGaussianSplatViewer() {
     return viewer;
   }, []);
 
-  const applyBackgroundColor = useCallback((currentSettings: ViewerSettings) => {
-    if (!viewerRef.current?.renderer) return;
+  const applyBackgroundColor = useCallback(
+    (currentSettings: ViewerSettings) => {
+      if (!viewerRef.current?.renderer) return;
 
-    const renderer = viewerRef.current.renderer as THREE.WebGLRenderer;
-    let colorValue: number;
+      const renderer = viewerRef.current.renderer as THREE.WebGLRenderer;
+      let colorValue: number;
 
-    if (currentSettings.backgroundColor === "custom") {
-      colorValue = hexToNumber(currentSettings.customBackgroundColor);
-    } else {
-      colorValue = backgroundColorValues[currentSettings.backgroundColor];
-    }
+      if (currentSettings.backgroundColor === "custom") {
+        colorValue = hexToNumber(currentSettings.customBackgroundColor);
+      } else {
+        colorValue = backgroundColorValues[currentSettings.backgroundColor];
+      }
 
-    renderer.setClearColor(colorValue, 1);
-  }, []);
+      renderer.setClearColor(colorValue, 1);
+    },
+    []
+  );
 
   const startFpsCounter = useCallback(() => {
     const updateFps = () => {
@@ -194,9 +199,11 @@ export function useGaussianSplatViewer() {
 
       if (currentControls.object && currentControls.target) {
         currentControls.object.position.x =
-          currentControls.target.x + horizontalRadius * Math.sin(cameraAngleRef.current);
+          currentControls.target.x +
+          horizontalRadius * Math.sin(cameraAngleRef.current);
         currentControls.object.position.z =
-          currentControls.target.z + horizontalRadius * Math.cos(cameraAngleRef.current);
+          currentControls.target.z +
+          horizontalRadius * Math.cos(cameraAngleRef.current);
         currentControls.object.position.y = cameraHeight;
         currentControls.object.lookAt(currentControls.target);
       }
@@ -249,7 +256,7 @@ export function useGaussianSplatViewer() {
         const format = getFileFormat(filename);
 
         await viewer.addSplatScene(source, {
-          scale: [2, -2, 2],
+          scale: [2, -2, -2],
           format,
           progressiveLoad: true,
           showLoadingUI: false,
@@ -316,7 +323,13 @@ export function useGaussianSplatViewer() {
         }));
       }
     },
-    [initializeViewer, startFpsCounter, settings, applyBackgroundColor, startAutoRotate]
+    [
+      initializeViewer,
+      startFpsCounter,
+      settings,
+      applyBackgroundColor,
+      startAutoRotate,
+    ]
   );
 
   const loadSampleData = useCallback(() => {
@@ -383,11 +396,19 @@ export function useGaussianSplatViewer() {
             applyBackgroundColor(updated);
           }
 
-          if (newSettings.pointCloudMode !== undefined && viewerRef.current.splatMesh) {
-            viewerRef.current.splatMesh.setPointCloudModeEnabled(updated.pointCloudMode);
+          if (
+            newSettings.pointCloudMode !== undefined &&
+            viewerRef.current.splatMesh
+          ) {
+            viewerRef.current.splatMesh.setPointCloudModeEnabled(
+              updated.pointCloudMode
+            );
           }
 
-          if (newSettings.pointSize !== undefined && viewerRef.current.splatMesh) {
+          if (
+            newSettings.pointSize !== undefined &&
+            viewerRef.current.splatMesh
+          ) {
             viewerRef.current.splatMesh.setSplatScale(updated.pointSize);
           }
 
@@ -399,10 +420,7 @@ export function useGaussianSplatViewer() {
             }
           }
 
-          if (
-            newSettings.autoRotateSpeed !== undefined &&
-            updated.autoRotate
-          ) {
+          if (newSettings.autoRotateSpeed !== undefined && updated.autoRotate) {
             stopAutoRotate();
             startAutoRotate(updated.autoRotateSpeed);
           }
